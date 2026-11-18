@@ -1,4 +1,10 @@
-import { useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type PropsWithChildren,
+} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export type Topic = {
@@ -50,32 +56,46 @@ const initialSubjects: Subject[] = [
   },
 ];
 
-function isSubjectList(value: unknown): value is Subject[] {
+type SubjectsContextValue = {
+  subjects: Subject[];
+  isLoading: boolean;
+  loadError: string | null;
+  addSubject: (name: string) => Promise<void>;
+  addTopic: (subjectId: string, name: string) => Promise<void>;
+};
+
+const SubjectsContext = createContext<SubjectsContextValue | null>(null);
+
+function isTopic(value: unknown): value is Topic {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const topic = value as Record<string, unknown>;
+  return typeof topic.id === "string" && typeof topic.name === "string";
+}
+
+function isSubject(value: unknown): value is Subject {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const subject = value as Record<string, unknown>;
   return (
-    Array.isArray(value) &&
-    value.every(
-      (subject) =>
-        subject !== null &&
-        typeof subject === "object" &&
-        typeof subject.id === "string" &&
-        typeof subject.name === "string" &&
-        Array.isArray(subject.topics) &&
-        subject.topics.every(
-          (topic: unknown) =>
-            topic !== null &&
-            typeof topic === "object" &&
-            typeof (topic as Topic).id === "string" &&
-            typeof (topic as Topic).name === "string",
-        ),
-    )
+    typeof subject.id === "string" &&
+    typeof subject.name === "string" &&
+    Array.isArray(subject.topics) &&
+    subject.topics.every(isTopic)
   );
+}
+
+function isSubjectList(value: unknown): value is Subject[] {
+  return Array.isArray(value) && value.every(isSubject);
 }
 
 function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function useSubjects() {
+export function SubjectsProvider({ children }: PropsWithChildren) {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -151,5 +171,19 @@ export function useSubjects() {
     await saveSubjects(nextSubjects);
   }
 
-  return { subjects, isLoading, loadError, addSubject, addTopic };
+  return (
+    <SubjectsContext.Provider
+      value={{ subjects, isLoading, loadError, addSubject, addTopic }}
+    >
+      {children}
+    </SubjectsContext.Provider>
+  );
+}
+
+export function useSubjects() {
+  const context = useContext(SubjectsContext);
+  if (!context) {
+    throw new Error("useSubjects debe usarse dentro de SubjectsProvider.");
+  }
+  return context;
 }

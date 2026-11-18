@@ -4,11 +4,10 @@ import {
   Modal,
   Platform,
   Pressable,
-  StyleSheet,
-  Text,
   TextInput,
   View,
 } from "react-native";
+import { ThemedText } from "@/components/ThemedText";
 
 type EntryModalProps = {
   visible: boolean;
@@ -58,18 +57,25 @@ export function EntryModal({
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.overlay}
+        className="flex-1 justify-center px-5"
       >
         <Pressable
           disabled={isSaving}
-          style={styles.backdrop}
           onPress={onClose}
+          className="absolute inset-0 bg-slate-950/50"
         />
-        <View style={styles.dialog}>
-          <View style={styles.accent} />
-          <Text style={styles.eyebrow}>SMARTREVIEW</Text>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.description}>{description}</Text>
+        <View className="overflow-hidden rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+          <View className="absolute left-0 right-0 top-0 h-1.5 bg-brand-500" />
+          <ThemedText
+            variant="plain"
+            className="mb-2 mt-1 text-[10px] font-extrabold tracking-[2px] text-brand-600"
+          >
+            SMARTREVIEW
+          </ThemedText>
+          <ThemedText className="text-2xl font-extrabold">{title}</ThemedText>
+          <ThemedText variant="muted" className="mb-5 mt-2 text-sm leading-5">
+            {description}
+          </ThemedText>
           <TextInput
             autoFocus
             maxLength={60}
@@ -81,39 +87,43 @@ export function EntryModal({
             placeholder={placeholder}
             placeholderTextColor="#8B929B"
             returnKeyType="done"
-            style={styles.input}
             value={value}
+            className="h-14 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[15px] text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
           />
           {(validationError || error) && (
-            <Text accessibilityRole="alert" style={styles.error}>
+            <ThemedText
+              variant="plain"
+              accessibilityRole="alert"
+              className="mt-2 text-xs text-red-600 dark:text-red-400"
+            >
               {validationError || error}
-            </Text>
+            </ThemedText>
           )}
-          <View style={styles.actions}>
+          <View className="mt-6 flex-row justify-end gap-2">
             <Pressable
               accessibilityRole="button"
               disabled={isSaving}
               onPress={onClose}
-              style={({ pressed }) => [
-                styles.cancelButton,
-                pressed && styles.pressed,
-              ]}
+              className="min-h-12 justify-center px-4 active:opacity-70"
             >
-              <Text style={styles.cancelText}>Cancelar</Text>
+              <ThemedText
+                variant="plain"
+                className="text-sm font-bold text-slate-500 dark:text-slate-300"
+              >
+                Cancelar
+              </ThemedText>
             </Pressable>
             <Pressable
               accessibilityRole="button"
               disabled={isSaving}
               onPress={() => void submit()}
-              style={({ pressed }) => [
-                styles.submitButton,
-                pressed && !isSaving && styles.pressed,
-                isSaving && styles.disabled,
-              ]}
+              className={`min-h-12 justify-center rounded-2xl bg-brand-600 px-5 active:opacity-75 ${
+                isSaving ? "opacity-50" : ""
+              }`}
             >
-              <Text style={styles.submitText}>
+              <ThemedText variant="inverse" className="text-sm font-bold">
                 {isSaving ? "Guardando..." : submitLabel}
-              </Text>
+              </ThemedText>
             </Pressable>
           </View>
         </View>
@@ -121,102 +131,3 @@ export function EntryModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: "center",
-    padding: 22,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(19, 31, 46, 0.48)",
-  },
-  dialog: {
-    overflow: "hidden",
-    borderRadius: 24,
-    backgroundColor: "#FFFFFF",
-    padding: 24,
-    shadowColor: "#152238",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.16,
-    shadowRadius: 24,
-    elevation: 10,
-  },
-  accent: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 5,
-    backgroundColor: "#5B61D6",
-  },
-  eyebrow: {
-    marginBottom: 8,
-    color: "#686DD6",
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1.8,
-  },
-  title: {
-    color: "#17243A",
-    fontSize: 24,
-    fontWeight: "800",
-  },
-  description: {
-    marginTop: 7,
-    marginBottom: 20,
-    color: "#717A88",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  input: {
-    height: 54,
-    borderWidth: 1,
-    borderColor: "#E2E6EF",
-    borderRadius: 14,
-    backgroundColor: "#FAFBFD",
-    paddingHorizontal: 15,
-    color: "#17243A",
-    fontSize: 15,
-  },
-  error: {
-    marginTop: 9,
-    color: "#B93838",
-    fontSize: 13,
-  },
-  actions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 10,
-    marginTop: 22,
-  },
-  cancelButton: {
-    minHeight: 46,
-    justifyContent: "center",
-    paddingHorizontal: 16,
-  },
-  cancelText: {
-    color: "#667085",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  submitButton: {
-    minHeight: 46,
-    justifyContent: "center",
-    borderRadius: 14,
-    backgroundColor: "#5B61D6",
-    paddingHorizontal: 19,
-  },
-  submitText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  pressed: {
-    opacity: 0.76,
-  },
-  disabled: {
-    opacity: 0.55,
-  },
-});
