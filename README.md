@@ -14,11 +14,17 @@ SmartReview ayudará a los estudiantes a organizar sus materias y temas de estud
 - 5. Comprobar que las funciones principales de registro, creación de tarjetas y programación de repasos puedan utilizarse sin conexión a Internet en un dispositivo Android.
 
 ## Habilidades
-- Programación móvil con React Native y JavaScript.
+- Programación móvil con React Native y TypeScript.
 - Diseño y desarrollo de interfaces utilizando Expo.
 - Almacenamiento local de información.
 - Implementación de algoritmos básicos para calcular fechas de repaso.
 - Organización y trabajo colaborativo en equipo.
+
+## Tecnologías
+- React Native con Expo SDK 58 y TypeScript.
+- Expo Router con navegación Stack y rutas simples.
+- NativeWind para estilos y temas claro/oscuro.
+- AsyncStorage para conservar materias, temas y preferencias en el dispositivo.
 
 ## Alcance inicial
 Registro y visualización de materias y temas.
@@ -27,11 +33,13 @@ Creación, edición y eliminación de tarjetas de preguntas y respuestas.
 
 Sistema para mostrar las preguntas y comprobar las respuestas.
 
-Evaluación del nivel de recuerdo del estudiante.
+Evaluación del recuerdo con intervalos de 0, 1 y 3 días.
 
-Programación automática de las próximas fechas de repaso.
+Programación local de la próxima fecha de repaso de cada tarjeta.
 
-Lista de temas pendientes de repasar.
+Lista de tarjetas pendientes y próximas fechas de repaso.
+
+
 
 ## Restricciones
 - La aplicación estará diseñada inicialmente para dispositivos Android.

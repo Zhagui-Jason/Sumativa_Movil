@@ -5,56 +5,15 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-export type Topic = {
-  id: string;
-  name: string;
-};
-
-export type Subject = {
-  id: string;
-  name: string;
-  topics: Topic[];
-};
-
-const STORAGE_KEY = "@smartreview/subjects";
-
-const initialSubjects: Subject[] = [
-  {
-    id: "subject-matematicas",
-    name: "Matemáticas",
-    topics: [
-      { id: "math-1", name: "Álgebra" },
-      { id: "math-2", name: "Ecuaciones lineales" },
-      { id: "math-3", name: "Funciones" },
-      { id: "math-4", name: "Geometría" },
-      { id: "math-5", name: "Estadística" },
-    ],
-  },
-  {
-    id: "subject-ciencias",
-    name: "Ciencias naturales",
-    topics: [
-      { id: "science-1", name: "La célula" },
-      { id: "science-2", name: "Sistemas del cuerpo humano" },
-      { id: "science-3", name: "Ecosistemas" },
-      { id: "science-4", name: "Materia y energía" },
-      { id: "science-5", name: "Ciclo del agua" },
-    ],
-  },
-  {
-    id: "subject-historia",
-    name: "Historia",
-    topics: [
-      { id: "history-1", name: "Civilizaciones antiguas" },
-      { id: "history-2", name: "Edad Media" },
-      { id: "history-3", name: "Renacimiento" },
-      { id: "history-4", name: "Independencia" },
-      { id: "history-5", name: "Historia contemporánea" },
-    ],
-  },
-];
+import {
+  calculateNextReviewDate,
+  createId,
+  loadSubjectsFromStorage,
+  saveSubjectsToStorage,
+  type Flashcard,
+  type RecallRating,
+  type Subject,
+} from "./subjectStore";
 
 type SubjectsContextValue = {
   subjects: Subject[];
@@ -62,38 +21,33 @@ type SubjectsContextValue = {
   loadError: string | null;
   addSubject: (name: string) => Promise<void>;
   addTopic: (subjectId: string, name: string) => Promise<void>;
+  addFlashcard: (
+    subjectId: string,
+    topicId: string,
+    question: string,
+    answer: string,
+  ) => Promise<void>;
+  updateFlashcard: (
+    subjectId: string,
+    topicId: string,
+    cardId: string,
+    question: string,
+    answer: string,
+  ) => Promise<void>;
+  deleteFlashcard: (
+    subjectId: string,
+    topicId: string,
+    cardId: string,
+  ) => Promise<void>;
+  reviewFlashcard: (
+    subjectId: string,
+    topicId: string,
+    cardId: string,
+    rating: RecallRating,
+  ) => Promise<void>;
 };
 
 const SubjectsContext = createContext<SubjectsContextValue | null>(null);
-
-function isTopic(value: unknown): value is Topic {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const topic = value as Record<string, unknown>;
-  return typeof topic.id === "string" && typeof topic.name === "string";
-}
-
-function isSubject(value: unknown): value is Subject {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const subject = value as Record<string, unknown>;
-  return (
-    typeof subject.id === "string" &&
-    typeof subject.name === "string" &&
-    Array.isArray(subject.topics) &&
-    subject.topics.every(isTopic)
-  );
-}
-
-function isSubjectList(value: unknown): value is Subject[] {
-  return Array.isArray(value) && value.every(isSubject);
-}
-
-function createId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 export function SubjectsProvider({ children }: PropsWithChildren) {
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -105,22 +59,9 @@ export function SubjectsProvider({ children }: PropsWithChildren) {
 
     async function loadSubjects() {
       try {
-        const storedSubjects = await AsyncStorage.getItem(STORAGE_KEY);
-        let nextSubjects: Subject[];
-
-        if (storedSubjects === null) {
-          nextSubjects = initialSubjects;
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextSubjects));
-        } else {
-          const parsed: unknown = JSON.parse(storedSubjects);
-          if (!isSubjectList(parsed)) {
-            throw new Error("Los datos guardados tienen un formato inválido.");
-          }
-          nextSubjects = parsed;
-        }
-
+        const savedSubjects = await loadSubjectsFromStorage();
         if (isMounted) {
-          setSubjects(nextSubjects);
+          setSubjects(savedSubjects);
           setLoadError(null);
         }
       } catch (error) {
@@ -132,9 +73,7 @@ export function SubjectsProvider({ children }: PropsWithChildren) {
           );
         }
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        if (isMounted) setIsLoading(false);
       }
     }
 
@@ -145,35 +84,159 @@ export function SubjectsProvider({ children }: PropsWithChildren) {
   }, []);
 
   async function saveSubjects(nextSubjects: Subject[]) {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextSubjects));
+    await saveSubjectsToStorage(nextSubjects);
     setSubjects(nextSubjects);
   }
 
   async function addSubject(name: string) {
-    const subject = { id: createId(), name: name.trim(), topics: [] };
-    await saveSubjects([...subjects, subject]);
+    const newSubject: Subject = {
+      id: createId(),
+      name: name.trim(),
+      topics: [],
+    };
+    await saveSubjects([...subjects, newSubject]);
   }
 
   async function addTopic(subjectId: string, name: string) {
+    const subjectExists = subjects.some((subject) => subject.id === subjectId);
+    if (!subjectExists) {
+      throw new Error("No se encontró la materia seleccionada.");
+    }
+
     const nextSubjects = subjects.map((subject) =>
       subject.id === subjectId
         ? {
             ...subject,
-            topics: [...subject.topics, { id: createId(), name: name.trim() }],
+            topics: [
+              ...subject.topics,
+              { id: createId(), name: name.trim(), cards: [] },
+            ],
           }
         : subject,
     );
+    await saveSubjects(nextSubjects);
+  }
 
-    if (!nextSubjects.some((subject) => subject.id === subjectId)) {
+  async function updateTopicCards(
+    subjectId: string,
+    topicId: string,
+    updateCards: (cards: Flashcard[]) => Flashcard[],
+  ) {
+    const subject = subjects.find((item) => item.id === subjectId);
+    if (!subject) {
       throw new Error("No se encontró la materia seleccionada.");
     }
+    if (!subject.topics.some((topic) => topic.id === topicId)) {
+      throw new Error("No se encontró el tema seleccionado.");
+    }
 
+    const nextSubjects = subjects.map((item) =>
+      item.id === subjectId
+        ? {
+            ...item,
+            topics: item.topics.map((topic) =>
+              topic.id === topicId
+                ? { ...topic, cards: updateCards(topic.cards) }
+                : topic,
+            ),
+          }
+        : item,
+    );
     await saveSubjects(nextSubjects);
+  }
+
+  async function addFlashcard(
+    subjectId: string,
+    topicId: string,
+    question: string,
+    answer: string,
+  ) {
+    const trimmedQuestion = question.trim();
+    const trimmedAnswer = answer.trim();
+    if (!trimmedQuestion || !trimmedAnswer) {
+      throw new Error("Escribe una pregunta y una respuesta.");
+    }
+
+    await updateTopicCards(subjectId, topicId, (cards) => [
+      ...cards,
+      {
+        id: createId(),
+        question: trimmedQuestion,
+        answer: trimmedAnswer,
+        nextReviewDate: null,
+      },
+    ]);
+  }
+
+  async function updateFlashcard(
+    subjectId: string,
+    topicId: string,
+    cardId: string,
+    question: string,
+    answer: string,
+  ) {
+    const trimmedQuestion = question.trim();
+    const trimmedAnswer = answer.trim();
+    if (!trimmedQuestion || !trimmedAnswer) {
+      throw new Error("Escribe una pregunta y una respuesta.");
+    }
+
+    await updateTopicCards(subjectId, topicId, (cards) => {
+      if (!cards.some((card) => card.id === cardId)) {
+        throw new Error("No se encontró la tarjeta seleccionada.");
+      }
+      return cards.map((card) =>
+        card.id === cardId
+          ? { ...card, question: trimmedQuestion, answer: trimmedAnswer }
+          : card,
+      );
+    });
+  }
+
+  async function deleteFlashcard(
+    subjectId: string,
+    topicId: string,
+    cardId: string,
+  ) {
+    await updateTopicCards(subjectId, topicId, (cards) => {
+      if (!cards.some((card) => card.id === cardId)) {
+        throw new Error("No se encontró la tarjeta seleccionada.");
+      }
+      return cards.filter((card) => card.id !== cardId);
+    });
+  }
+
+  async function reviewFlashcard(
+    subjectId: string,
+    topicId: string,
+    cardId: string,
+    rating: RecallRating,
+  ) {
+    await updateTopicCards(subjectId, topicId, (cards) => {
+      if (!cards.some((card) => card.id === cardId)) {
+        throw new Error("No se encontró la tarjeta seleccionada.");
+      }
+      return cards.map((card) =>
+        card.id === cardId
+          ? { ...card, nextReviewDate: calculateNextReviewDate(rating) }
+          : card,
+      );
+    });
   }
 
   return (
     <SubjectsContext.Provider
-      value={{ subjects, isLoading, loadError, addSubject, addTopic }}
+      value={{
+        subjects,
+        isLoading,
+        loadError,
+        addSubject,
+        addTopic,
+        addFlashcard,
+        updateFlashcard,
+        deleteFlashcard,
+        reviewFlashcard,
+      }}
     >
       {children}
     </SubjectsContext.Provider>

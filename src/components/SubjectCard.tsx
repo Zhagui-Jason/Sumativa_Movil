@@ -1,12 +1,14 @@
-import { useState } from "react";
-import { Pressable, View } from "react-native";
-import type { Subject } from "@/hooks/useSubjects";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import type { Subject } from "@/hooks/subjectStore";
+import { useState } from "react";
+import { Pressable, View } from "react-native";
 
 type SubjectCardProps = {
   subject: Subject;
+  initiallyExpanded?: boolean;
   onAddTopic: (subjectId: string) => void;
+  onSelectTopic: (subjectId: string, topicId: string) => void;
 };
 
 const colors = [
@@ -28,8 +30,13 @@ const colors = [
   },
 ];
 
-export function SubjectCard({ subject, onAddTopic }: SubjectCardProps) {
-  const [expanded, setExpanded] = useState(false);
+export function SubjectCard({
+  subject,
+  initiallyExpanded = false,
+  onAddTopic,
+  onSelectTopic,
+}: SubjectCardProps) {
+  const [expanded, setExpanded] = useState(initiallyExpanded);
   const color = colors[subject.name.length % colors.length];
 
   return (
@@ -78,9 +85,11 @@ export function SubjectCard({ subject, onAddTopic }: SubjectCardProps) {
             </ThemedText>
           ) : (
             subject.topics.map((topic, index) => (
-              <View
+              <Pressable
                 key={topic.id}
-                className="min-h-11 flex-row items-center border-b border-slate-100 dark:border-slate-800"
+                accessibilityRole="button"
+                onPress={() => onSelectTopic(subject.id, topic.id)}
+                className="min-h-12 flex-row items-center border-b border-slate-100 dark:border-slate-800 active:opacity-70"
               >
                 <View className="w-8 items-center rounded-lg bg-brand-50 py-1.5 dark:bg-slate-800">
                   <ThemedText
@@ -96,7 +105,16 @@ export function SubjectCard({ subject, onAddTopic }: SubjectCardProps) {
                 >
                   {topic.name}
                 </ThemedText>
-              </View>
+                <ThemedText
+                  variant="muted"
+                  className="mr-2 text-[10px]"
+                >
+                  {topic.cards.length} tarjetas
+                </ThemedText>
+                <ThemedText variant="plain" className="text-lg text-slate-400">
+                  ›
+                </ThemedText>
+              </Pressable>
             ))
           )}
           <Pressable
